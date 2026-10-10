@@ -85,7 +85,47 @@ async function cloudRequest(path,{method="GET",body=null,token=null,prefer=null}
   if(!res.ok){const msg=(data&&data.message)||(data&&data.error_description)||(data&&data.error)||txt||("HTTP "+res.status);throw new Error(msg)}
   return data;
 }
-async function getPublicSession(sessionId){
+async function handlePasswordRecovery(){
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const query = new URLSearchParams(location.search);
+
+  if(hash.get("error")){
+    alert("Password recovery link is invalid or expired. Please request a new email.");
+    history.replaceState(null,"",location.pathname);
+    return;
+  }
+
+  if(hash.get("type")!=="recovery") return;
+
+  const token = hash.get("access_token");
+  if(!token) return;
+
+  const password = prompt("Enter your NEW Master Admin password (at least 8 characters):");
+  if(password===null) return;
+  if(password.length<8){
+    alert("Password must contain at least 8 characters.");
+    return;
+  }
+
+  const confirmPassword = prompt("Confirm your new password:");
+  if(confirmPassword!==password){
+    alert("Passwords do not match.");
+    return;
+  }
+
+  try{
+    await cloudRequest("/auth/v1/user",{
+      method:"PUT",
+      token,
+      body:{password}
+    });
+    history.replaceState(null,"",location.pathname);
+    alert("Password updated successfully. You can now sign in as Master Admin.");
+  }catch(error){
+    alert("Password reset failed: "+error.message);
+  }
+}
+  async function getPublicSession(sessionId){
   const data=await cloudRequest("/rest/v1/rpc/get_public_session",{method:"POST",body:{p_session_id:sessionId}});
   return Array.isArray(data)?data[0]:data;
 }
@@ -427,6 +467,7 @@ async function initApp(){
  }
  renderWelcome();
 }
+handlePasswordRecovery();
 initApp();
 </script>
 </body>
